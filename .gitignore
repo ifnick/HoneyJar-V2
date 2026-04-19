@@ -1,0 +1,19 @@
+# Runtime data — never commit these
+cowrie/var/
+cowrie/etc/cowrie.cfg
+cowrie/etc/userdb.txt
+cowrie/etc/ports_config.json
+cowrie/etc/blocked_ips.txt
+
+# Docker generated
+docker-compose.yml
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env
+
+# Watcher scripts (written to /usr/local/bin at runtime)
+honeyjar2-*.py
+honeyjar2-*.sh
