@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block content %}
+
+<!-- Filters -->
+<div class="pn" style="margin-bottom:16px">
+  <div class="ph"><span class="ph-t">Filters</span><span class="ph-s">{{ total }} sessions</span></div>
+  <div class="pb">
+    <form method="GET">
+      <div class="row">
+        <div>
+          <label class="fl">Protocol</label>
+          <select name="proto" class="fi" style="width:140px">
+            <option value="">All</option>
+            {% for p in protocols %}<option value="{{ p }}" {{ 'selected' if proto==p }}>{{ p }}</option>{% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="fl">IP</label>
+          <input type="text" name="ip" value="{{ ip_q }}" placeholder="filter..." class="fi" style="width:180px"/>
+        </div>
+        <button type="submit" class="btn btn-p" style="align-self:flex-end">Apply</button>
+        <a href="/sessions" class="btn" style="align-self:flex-end">Clear</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Sessions table -->
+<div class="tw">
+  <table>
+    <thead>
+      <tr>
+        <th>IP</th>
+        <th>Protocol</th>
+        <th>First Seen</th>
+        <th>Last Seen</th>
+        <th>Events</th>
+        <th>Creds</th>
+        <th>Commands</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for row in rows %}
+    <tr onclick="showSession('{{ row[0] }}','{{ row[1] }}')">
+      <td class="mono" style="white-space:nowrap">
+        {{ row[0] }}
+        <button class="cpb" onclick='event.stopPropagation();copyText({{ row[0]|tojson }},"IP")' title="Copy IP">{{ svgcopy }}</button>
+      </td>
+      <td><span class="chip {{ row[1]|lower if row[1] else '' }}">{{ row[1] }}</span></td>
+      <td class="mono td-dim" style="font-size:10px;white-space:nowrap">{{ row[2].strftime('%Y-%m-%d %H:%M:%S') if row[2] else '' }}</td>
+      <td class="mono td-dim" style="font-size:10px;white-space:nowrap">{{ row[3].strftime('%Y-%m-%d %H:%M:%S') if row[3] else '' }}</td>
+      <td class="mono tx-ac">{{ row[4] }}</td>
+      <td class="mono {% if row[5] > 0 %}tx-rd{% else %}td-dim{% endif %}">{{ row[5] }}</td>
+      <td class="mono {% if row[6] > 0 %}tx-gr{% else %}td-dim{% endif %}">{{ row[6] }}</td>
+      <td onclick="event.stopPropagation()">
+        <div class="row" style="gap:4px">
+          <button class="btn btn-sm" onclick="showSession('{{ row[0] }}','{{ row[1] }}')">Timeline</button>
+          <a href="/events?ip={{ row[0] }}&proto={{ row[1] }}" class="btn btn-sm">Events</a>
+          {% if row[5] > 0 %}
+          <a href="/credentials?proto={{ row[1] }}" class="btn btn-sm btn-rd">Creds</a>
+          {% endif %}
+          <button class="btn btn-sm btn-rd" onclick='blockIp({{ row[0]|tojson }})'>Block</button>
+        </div>
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="8" class="empty">No sessions yet. Honeypots are listening...</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+  {% if pages > 1 %}
+  <div class="pgr">
+    <span>Page {{ page }} of {{ pages }} &mdash; {{ total }} sessions</span>
+    <div class="pl">
+      {% if page > 1 %}<a href="?page={{ page-1 }}&proto={{ proto }}&ip={{ ip_q }}">&laquo;</a>{% endif %}
+      {% for p in range(1, pages+1) %}
+        {% if p == page %}<span class="cur">{{ p }}</span>
+        {% elif p <= 3 or p > pages-3 or (p >= page-2 and p <= page+2) %}
+          <a href="?page={{ p }}&proto={{ proto }}&ip={{ ip_q }}">{{ p }}</a>
+        {% elif p == 4 or p == pages-3 %}<span>&hellip;</span>{% endif %}
+      {% endfor %}
+      {% if page < pages %}<a href="?page={{ page+1 }}&proto={{ proto }}&ip={{ ip_q }}">&raquo;</a>{% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}
+{% block scripts %}{% endblock %}

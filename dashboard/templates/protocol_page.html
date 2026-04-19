@@ -1,0 +1,221 @@
+{% extends "base.html" %}
+{% block content %}
+
+<!-- Protocol header -->
+<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+  <span class="chip {{ proto|lower }}" style="font-size:13px;padding:4px 12px">{{ proto }}</span>
+  <span class="mono" style="font-size:11px;color:var(--tx3)">dedicated honeypot view &mdash; all events are logged only, no commands are executed on the host</span>
+</div>
+
+<!-- Stat cards -->
+<div class="sg" style="margin-bottom:20px">
+  <div class="sc">
+    <div class="sc-ic ic-g">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ac)" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+    </div>
+    <div class="sc-l">Total Events</div>
+    <div class="sc-v g">{{ stats.total }}</div>
+    <div class="sc-s">all {{ proto }} activity</div>
+  </div>
+  <div class="sc">
+    <div class="sc-ic ic-r">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+    </div>
+    <div class="sc-l">Credentials</div>
+    <div class="sc-v r">{{ stats.creds }}</div>
+    <div class="sc-s">captured login attempts</div>
+  </div>
+  {% if stats.cmds > 0 %}
+  <div class="sc">
+    <div class="sc-ic ic-gr">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><polyline points="16,18 22,12 16,6"/><polyline points="8,6 2,12 8,18"/></svg>
+    </div>
+    <div class="sc-l">Commands</div>
+    <div class="sc-v gr">{{ stats.cmds }}</div>
+    <div class="sc-s">logged (never executed)</div>
+  </div>
+  {% endif %}
+  <div class="sc">
+    <div class="sc-ic ic-b">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+    </div>
+    <div class="sc-l">Unique IPs</div>
+    <div class="sc-v b">{{ stats.unique_ips }}</div>
+    <div class="sc-s">distinct sources</div>
+  </div>
+  <div class="sc">
+    <div class="sc-ic ic-p">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--purple)" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>
+    </div>
+    <div class="sc-l">Last 24h</div>
+    <div class="sc-v p">{{ stats.last24h }}</div>
+    <div class="sc-s">recent events</div>
+  </div>
+</div>
+
+<div class="cg2" style="margin-bottom:16px">
+  <!-- Top IPs -->
+  <div class="pn">
+    <div class="ph">
+      <span class="ph-t">Top Source IPs</span>
+      <span class="ph-s">by event count</span>
+    </div>
+    <div class="tw" style="border:none;border-radius:0;margin:0">
+      <table>
+        <thead><tr><th>IP</th><th>Events</th><th></th></tr></thead>
+        <tbody>
+        {% for row in top_ips %}
+        <tr onclick="window.location='/events?ip={{ row[0] }}&proto={{ proto }}'">
+          <td class="mono">
+            {{ row[0] }}
+            <button class="cpb" onclick='event.stopPropagation();copyText({{ row[0]|tojson }},"IP")' title="Copy IP">{{ svgcopy }}</button>
+          </td>
+          <td class="mono tx-dim">{{ row[1] }}</td>
+          <td><a href="/sessions?ip={{ row[0] }}&proto={{ proto }}" class="btn btn-sm">Sessions</a></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="3" class="empty">No data yet.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Export / actions -->
+  <div class="pn">
+    <div class="ph"><span class="ph-t">Export</span></div>
+    <div class="pb">
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <a href="/export/events.json?proto={{ proto }}" class="btn">{{ proto }} events (JSON)</a>
+        <a href="/export/events.csv?proto={{ proto }}" class="btn">{{ proto }} events (CSV)</a>
+        <a href="/export/events.txt?proto={{ proto }}" class="btn">{{ proto }} events (TXT)</a>
+        <div class="sep"></div>
+        <a href="/export/credentials.json?proto={{ proto }}" class="btn">{{ proto }} credentials (JSON)</a>
+        <a href="/export/credentials.csv?proto={{ proto }}" class="btn">{{ proto }} credentials (CSV)</a>
+        <a href="/export/credentials.txt?proto={{ proto }}" class="btn">{{ proto }} credentials wordlist</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Filters -->
+<div class="pn" style="margin-bottom:16px">
+  <div class="ph"><span class="ph-t">Filters</span></div>
+  <div class="pb">
+    <form method="GET">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:12px">
+        <div>
+          <label class="fl">Event Type</label>
+          <select name="type" class="fi">
+            <option value="">All</option>
+            {% for et in etypes %}
+            <option value="{{ et }}" {{ 'selected' if etype_q==et }}>{{ et }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="fl">IP Address</label>
+          <input type="text" name="ip" value="{{ ip_q }}" placeholder="e.g. 1.2.3.4" class="fi"/>
+        </div>
+        <div>
+          <label class="fl">Per Page</label>
+          <select name="per_page" class="fi">
+            {% for n in [25,50,100,250] %}
+            <option value="{{ n }}" {{ 'selected' if per_page==n }}>{{ n }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <button type="submit" class="btn btn-p">Apply Filters</button>
+        <a href="/protocol/{{ proto|lower }}" class="btn">Clear</a>
+        <span class="mono" style="font-size:10px;color:var(--tx3);margin-left:auto">{{ logs.total }} events</span>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Events table -->
+<div class="tw">
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Time (UTC)</th>
+        <th>IP</th>
+        <th>Port</th>
+        <th>Type</th>
+        <th>Username</th>
+        <th>Password</th>
+        <th>Path / Command</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for e in logs.items %}
+    {% set detail = e.command or e.path or '' %}
+    <tr onclick="showEvent({{ e.id }})">
+      <td class="mono td-dim" style="font-size:10px">{{ e.id }}</td>
+      <td class="mono td-dim" style="white-space:nowrap;font-size:10px">{{ e.ts.strftime('%Y-%m-%d %H:%M:%S') if e.ts else '' }}</td>
+      <td class="mono" style="white-space:nowrap">
+        {{ e.ip }}
+        <button class="cpb" onclick='event.stopPropagation();copyText({{ e.ip|tojson }},"IP")' title="Copy IP">{{ svgcopy }}</button>
+      </td>
+      <td class="mono td-dim">{{ e.port or '—' }}</td>
+      <td><span class="chip {{ (e.event_type|lower).replace('_','') if e.event_type else '' }}">{{ e.event_type or '—' }}</span></td>
+      <td class="mono" style="color:var(--rd);white-space:nowrap">
+        {% if e.username %}
+          {{ e.username }}
+          <button class="cpb" onclick='event.stopPropagation();copyText({{ e.username|tojson }},"username")' title="Copy username">{{ svgcopy }}</button>
+        {% else %}<span class="td-dim">—</span>{% endif %}
+      </td>
+      <td class="mono" style="color:var(--rd);white-space:nowrap">
+        {% if e.password %}
+          {{ e.password }}
+          <button class="cpb" onclick='event.stopPropagation();copyText({{ e.password|tojson }},"password")' title="Copy password">{{ svgcopy }}</button>
+        {% else %}<span class="td-dim">—</span>{% endif %}
+      </td>
+      <td class="mono td-path td-dim">
+        {{ detail[:80] }}{% if detail|length > 80 %}…{% endif %}
+        {% if detail %}
+          <button class="cpb" onclick='event.stopPropagation();copyText({{ detail|tojson }},"detail")' title="Copy">{{ svgcopy }}</button>
+        {% endif %}
+      </td>
+      <td>
+        <div class="row" style="gap:4px" onclick="event.stopPropagation()">
+          <button class="btn btn-sm" onclick="showEvent({{ e.id }})">Detail</button>
+          {% if e.username %}
+          <button class="btn btn-sm btn-rd" onclick='copyText({{ (e.username + ":" + (e.password or ""))|tojson }},"combo")'>Copy combo</button>
+          {% endif %}
+        </div>
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="9" class="empty">No {{ proto }} events captured yet. Honeypot is listening...</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+  {% if logs.pages > 1 %}
+  <div class="pgr">
+    <span>Page {{ logs.page }} of {{ logs.pages }}</span>
+    <div class="pl">
+      {% if logs.has_prev %}
+        <a href="?page={{ logs.page-1 }}&type={{ etype_q }}&ip={{ ip_q }}&per_page={{ per_page }}">&laquo;</a>
+      {% endif %}
+      {% for p in logs.iter_pages(left_edge=1,right_edge=1,left_current=2,right_current=2) %}
+        {% if p %}
+          {% if p == logs.page %}<span class="cur">{{ p }}</span>
+          {% else %}<a href="?page={{ p }}&type={{ etype_q }}&ip={{ ip_q }}&per_page={{ per_page }}">{{ p }}</a>{% endif %}
+        {% else %}<span>&hellip;</span>{% endif %}
+      {% endfor %}
+      {% if logs.has_next %}
+        <a href="?page={{ logs.page+1 }}&type={{ etype_q }}&ip={{ ip_q }}&per_page={{ per_page }}">&raquo;</a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}
+{% block scripts %}{% endblock %}

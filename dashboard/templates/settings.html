@@ -1,0 +1,339 @@
+{% extends "base.html" %}
+{% block content %}
+
+{% if msg %}
+<div style="background:rgba(63,185,80,.08);border:1px solid rgba(63,185,80,.2);border-radius:var(--r2);padding:10px 16px;margin-bottom:16px;font-family:var(--fm);font-size:11px;color:var(--gr)">
+  {{ msg }}
+</div>
+{% endif %}
+
+<div class="cg2">
+
+  <!-- Port configuration -->
+  <div class="pn">
+    <div class="ph">
+      <span class="ph-t">Port Configuration</span>
+      <button class="btn btn-sm" onclick="toggleRaw()" id="raw-toggle">Show JSON</button>
+    </div>
+    <div class="pb">
+      <form method="POST" id="ports-form" onsubmit="submitPorts(event)">
+        <input type="hidden" name="action" value="save_ports"/>
+        <input type="hidden" name="ports_json" id="ports-json-out"/>
+
+        <!-- Visual editor -->
+        <div id="ports-visual">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px" id="proto-grid">
+            {% set proto_colors = {
+              'ssh':    ('var(--yellow)', 'SSH',    'Port 22 · SSH honeypot (Cowrie)'),
+              'telnet': ('var(--green)',  'Telnet', 'Port 23 · Telnet honeypot (Cowrie)'),
+              'http':   ('var(--red)',    'HTTP',   'Port 80/8080 · HTTP honeypot'),
+              'https':  ('var(--red)',    'HTTPS',  'Port 443/8443 · HTTPS honeypot'),
+              'ftp':    ('var(--blue)',   'FTP',    'Port 21 · FTP honeypot'),
+              'tftp':   ('var(--purple)', 'TFTP',   'Port 69 · TFTP honeypot (UDP)')
+            } %}
+            {% for proto, (color, label, hint) in proto_colors.items() %}
+            <div style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:12px">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+                <span style="font-family:var(--mono);font-size:11px;font-weight:700;color:{{ color }};min-width:52px">{{ label }}</span>
+                <span style="font-family:var(--mono);font-size:9px;color:var(--tx3)">{{ hint }}</span>
+              </div>
+              <div class="port-chips" id="chips-{{ proto }}" style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px">
+                {% for p in ports_cfg.get(proto, []) %}
+                <span class="port-chip" data-port="{{ p }}" style="display:inline-flex;align-items:center;gap:4px;background:var(--bg4);border:1px solid var(--border);border-radius:4px;padding:3px 8px;font-family:var(--mono);font-size:11px;color:{{ color }}">
+                  :{{ p }}
+                  <button type="button" onclick="removePort('{{ proto }}',{{ p }})" style="background:none;border:none;cursor:pointer;color:var(--tx3);font-size:12px;line-height:1;padding:0 0 0 2px" title="Remove">&times;</button>
+                </span>
+                {% endfor %}
+              </div>
+              <div style="display:flex;gap:6px">
+                <input type="number" id="add-{{ proto }}" placeholder="port" min="1" max="65535"
+                  class="fi" style="width:90px;padding:4px 8px;font-size:11px"
+                  onkeydown="if(event.key==='Enter'){event.preventDefault();addPort('{{ proto }}');}"/>
+                <button type="button" class="btn btn-sm" onclick="addPort('{{ proto }}')">+ Add</button>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          <div class="row" style="margin-top:12px">
+            <button type="submit" class="btn btn-p">Save Config</button>
+            <span style="font-family:var(--mono);font-size:10px;color:var(--tx3)">Changes apply automatically — no restart needed for HTTP/FTP/TFTP. SSH/Telnet restart cowrie.</span>
+          </div>
+        </div>
+
+        <!-- Raw JSON fallback (hidden by default) -->
+        <div id="ports-raw" style="display:none">
+          <textarea id="raw-ta" class="fi" rows="10" style="resize:vertical;font-family:var(--fm);font-size:12px;line-height:1.6"></textarea>
+          <div class="row" style="margin-top:8px">
+            <button type="submit" class="btn btn-p">Save Config</button>
+            <button type="button" class="btn" onclick="copyText(document.getElementById('raw-ta').value,'port config')">Copy</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- IP Block list -->
+  <div class="pn">
+    <div class="ph">
+      <span class="ph-t">IP Block List</span>
+      <span class="ph-s">{{ blocked_ips|length }} blocked</span>
+    </div>
+    <div class="pb">
+      <p class="mono" style="font-size:11px;color:var(--tx3);margin-bottom:12px;line-height:1.6">
+        Blocked IPs are dropped at the iptables level by the host-level block watcher.
+      </p>
+
+      <!-- Block IP form -->
+      <form method="POST" style="margin-bottom:14px">
+        <input type="hidden" name="action" value="block_ip"/>
+        <div style="display:flex;gap:8px">
+          <input type="text" name="ip" placeholder="IP address to block e.g. 1.2.3.4" class="fi"/>
+          <button type="submit" class="btn btn-rd">Block</button>
+        </div>
+      </form>
+
+      <!-- Blocked list -->
+      {% if blocked_ips %}
+      <div style="max-height:280px;overflow-y:auto">
+        {% for ip in blocked_ips %}
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--bd2)">
+          <span class="mono" style="font-size:11px;color:var(--rd)">
+            {{ ip }}
+            <button class="cpb" onclick='copyText({{ ip|tojson }},"IP")' title="Copy">{{ svgcopy }}</button>
+          </span>
+          <form method="POST" style="display:inline">
+            <input type="hidden" name="action" value="unblock_ip"/>
+            <input type="hidden" name="ip" value="{{ ip }}"/>
+            <button type="submit" class="btn btn-sm">Unblock</button>
+          </form>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="mono" style="font-size:11px;color:var(--tx3)">No IPs currently blocked.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Quick links -->
+  <div class="pn">
+    <div class="ph"><span class="ph-t">Data Export</span></div>
+    <div class="pb">
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <a href="/export/events.json" class="btn">All events (JSON)</a>
+        <a href="/export/events.csv" class="btn">All events (CSV)</a>
+        <a href="/export/events.txt" class="btn">All events (TXT)</a>
+        <div class="sep"></div>
+        <a href="/export/credentials.json" class="btn">Credentials (JSON)</a>
+        <a href="/export/credentials.csv" class="btn">Credentials (CSV)</a>
+        <a href="/export/credentials.txt" class="btn">Credentials wordlist (TXT)</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sensor status -->
+  <div class="pn">
+    <div class="ph">
+      <span class="ph-t">Sensor Status</span>
+      <button class="btn btn-sm" onclick="refreshStatus()">Refresh</button>
+    </div>
+    <div class="pb" id="sensor-rows">
+      <div class="mono" style="font-size:11px;color:var(--text-dim);padding:8px 0">Checking ports...</div>
+    </div>
+    <div style="padding:0 16px 12px;font-family:var(--mono);font-size:10px;color:var(--text-dim)">
+      Probing via Docker gateway &mdash; config from <span style="color:var(--text-muted)">/config/ports_config.json</span>
+    </div>
+  </div>
+
+</div>
+
+{% endblock %}
+{% block scripts %}
+<style>
+@keyframes spin { to { transform:rotate(360deg); } }
+.spin-ring {
+  display:inline-block;width:9px;height:9px;border-radius:50%;
+  border:2px solid transparent;border-top-color:currentColor;
+  animation:spin .7s linear infinite;flex-shrink:0;vertical-align:middle;
+}
+.port-chip:hover { border-color:var(--rd) !important; }
+.port-chip:hover button { color:var(--rd) !important; }
+</style>
+<script>
+// ── Port chip state (mirrors what's visible on screen) ────────────────────
+const PROTO_DEFAULTS = {ssh:[2222],telnet:[23],http:[8080],https:[8443],ftp:[21],tftp:[69]};
+const PROTO_COLORS   = {ssh:'var(--yellow)',telnet:'var(--green)',http:'var(--red)',https:'var(--red)',ftp:'var(--blue)',tftp:'var(--purple)'};
+
+function getPortsFromDOM(){
+  const cfg = {};
+  for(const proto of ['ssh','telnet','http','https','ftp','tftp']){
+    const chips = document.querySelectorAll(`#chips-${proto} .port-chip`);
+    cfg[proto] = Array.from(chips).map(c => parseInt(c.dataset.port));
+  }
+  return cfg;
+}
+
+function addPort(proto){
+  const inp = document.getElementById('add-' + proto);
+  const val = parseInt(inp.value.trim());
+  if(!val || val < 1 || val > 65535){ toast('Enter a valid port (1–65535)', 'err'); return; }
+  const chips = document.getElementById('chips-' + proto);
+  // Deduplicate
+  if([...chips.querySelectorAll('.port-chip')].some(c => parseInt(c.dataset.port) === val)){
+    toast(':' + val + ' already added', 'err'); inp.value=''; return;
+  }
+  const color = PROTO_COLORS[proto] || 'var(--text)';
+  const chip = document.createElement('span');
+  chip.className = 'port-chip';
+  chip.dataset.port = val;
+  chip.style.cssText = `display:inline-flex;align-items:center;gap:4px;background:var(--bg4);border:1px solid var(--border);border-radius:4px;padding:3px 8px;font-family:var(--mono);font-size:11px;color:${color}`;
+  chip.innerHTML = `:${val}<button type="button" onclick="removePort('${proto}',${val})" style="background:none;border:none;cursor:pointer;color:var(--tx3);font-size:12px;line-height:1;padding:0 0 0 2px" title="Remove">&times;</button>`;
+  chips.appendChild(chip);
+  inp.value = '';
+  toast(':' + val + ' added to ' + proto.toUpperCase(), 'ok');
+}
+
+function removePort(proto, port){
+  const chips = document.getElementById('chips-' + proto);
+  const chip  = [...chips.querySelectorAll('.port-chip')].find(c => parseInt(c.dataset.port) === port);
+  if(chip) chip.remove();
+}
+
+function submitPorts(e){
+  const rawVisible = document.getElementById('ports-raw').style.display !== 'none';
+  if(rawVisible){
+    // Raw mode: validate and pass through
+    const ta = document.getElementById('raw-ta');
+    try { JSON.parse(ta.value); }
+    catch(err){ e.preventDefault(); toast('Invalid JSON: ' + err.message, 'err'); return; }
+    document.getElementById('ports-json-out').value = ta.value;
+  } else {
+    document.getElementById('ports-json-out').value = JSON.stringify(getPortsFromDOM(), null, 2);
+  }
+}
+
+let _rawOpen = false;
+function toggleRaw(){
+  _rawOpen = !_rawOpen;
+  const vis = document.getElementById('ports-visual');
+  const raw = document.getElementById('ports-raw');
+  const btn = document.getElementById('raw-toggle');
+  if(_rawOpen){
+    raw.style.display = '';
+    vis.style.display = 'none';
+    btn.textContent = 'Simple UI';
+    document.getElementById('raw-ta').value = JSON.stringify(getPortsFromDOM(), null, 2);
+  } else {
+    // Sync raw JSON back into visual chips
+    try{
+      const cfg = JSON.parse(document.getElementById('raw-ta').value);
+      for(const proto of ['ssh','telnet','http','https','ftp','tftp']){
+        const chips = document.getElementById('chips-' + proto);
+        chips.innerHTML = '';
+        const color = PROTO_COLORS[proto] || 'var(--text)';
+        for(const p of (cfg[proto] || [])){
+          const chip = document.createElement('span');
+          chip.className = 'port-chip';
+          chip.dataset.port = p;
+          chip.style.cssText = `display:inline-flex;align-items:center;gap:4px;background:var(--bg4);border:1px solid var(--border);border-radius:4px;padding:3px 8px;font-family:var(--mono);font-size:11px;color:${color}`;
+          chip.innerHTML = `:${p}<button type="button" onclick="removePort('${proto}',${p})" style="background:none;border:none;cursor:pointer;color:var(--tx3);font-size:12px;line-height:1;padding:0 0 0 2px" title="Remove">&times;</button>`;
+          chips.appendChild(chip);
+        }
+      }
+    }catch(err){ toast('Invalid JSON — staying in raw mode', 'err'); _rawOpen=true; return; }
+    raw.style.display = 'none';
+    vis.style.display = '';
+    btn.textContent = 'Show JSON';
+  }
+}
+
+const PROTO_COLOR = {
+  SSH:'var(--yellow)', TELNET:'var(--green)', HTTP:'var(--red)',
+  HTTPS:'var(--red)', FTP:'var(--blue)', TFTP:'var(--purple)'
+};
+
+function stateUI(s){
+  const cs = s.cstate || 'unknown';
+  if(cs === 'restarting')
+    return { color:'var(--yellow)', label:'restarting',
+             dot:`<span class="spin-ring" style="color:var(--yellow)"></span>` };
+  if(cs === 'starting')
+    return { color:'var(--yellow)', label:'starting',
+             dot:`<span class="spin-ring" style="color:var(--yellow)"></span>` };
+  if(cs === 'stopping')
+    return { color:'var(--yellow)', label:'stopping',
+             dot:`<span class="spin-ring" style="color:var(--yellow)"></span>` };
+  if(cs === 'stopped')
+    return { color:'var(--red)', label:'stopped',
+             dot:`<div style="width:7px;height:7px;background:var(--red);border-radius:50%;flex-shrink:0"></div>` };
+  if(s.up)
+    return { color:'var(--green)', label:'up',
+             dot:`<div style="width:7px;height:7px;background:var(--green);border-radius:50%;position:relative;flex-shrink:0">
+                   <div style="position:absolute;inset:-3px;border-radius:50%;border:1px solid var(--green);animation:pulse 2s ease-out infinite"></div>
+                 </div>` };
+  if(cs === 'running')
+    return { color:'var(--yellow)', label:'starting',
+             dot:`<span class="spin-ring" style="color:var(--yellow)"></span>` };
+  // unknown / no docker socket — fall back to raw port state
+  const c = s.up ? 'var(--green)' : 'var(--red)';
+  return { color:c, label: s.up ? 'up' : 'down',
+           dot:`<div style="width:7px;height:7px;background:${c};border-radius:50%;flex-shrink:0"></div>` };
+}
+
+let _autoTimer = null;
+
+function refreshStatus(silent){
+  const box = document.getElementById('sensor-rows');
+  if(!silent)
+    box.innerHTML = '<div class="mono" style="font-size:11px;color:var(--text-dim);padding:8px 0">Checking ports...</div>';
+
+  fetch('/api/sensor-status')
+    .then(r => r.json())
+    .then(data => {
+      if(!data.sensors || !data.sensors.length){
+        box.innerHTML = '<div class="mono" style="font-size:11px;color:var(--text-dim);padding:8px 0">No ports configured.</div>';
+        _clearAuto();
+        return;
+      }
+
+      const transitioning = data.sensors.some(s => {
+        const cs = s.cstate || '';
+        return ['restarting','starting','stopping'].includes(cs) ||
+               (cs === 'running' && !s.up);
+      });
+
+      box.innerHTML = data.sensors.map(s => {
+        const ui = stateUI(s);
+        const pc = PROTO_COLOR[s.proto] || 'var(--text-muted)';
+        return `<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border-sub)">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-family:var(--mono);font-size:10px;font-weight:700;color:${pc};width:52px">${esc(s.proto)}</span>
+            <span class="mono" style="font-size:12px;font-weight:600">:${s.port}</span>
+            <span style="font-family:var(--mono);font-size:9px;color:var(--text-dim);background:var(--bg3);border:1px solid var(--border);padding:1px 6px;border-radius:3px">${esc(s.type)}</span>
+            <span style="font-family:var(--mono);font-size:9px;color:var(--text-dim)">${esc(s.engine)}</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:7px">
+            ${ui.dot}
+            <span class="mono" style="font-size:10px;color:${ui.color}">${ui.label}</span>
+          </div>
+        </div>`;
+      }).join('');
+
+      // While any container is transitioning, re-poll every 2s automatically.
+      // Stop polling once everything is stable so we don't hammer the API.
+      if(transitioning) _scheduleAuto(2000);
+      else _clearAuto();
+    })
+    .catch(e => {
+      box.innerHTML = `<div class="mono" style="font-size:11px;color:var(--red);padding:8px 0">Check failed: ${esc(String(e))}</div>`;
+      _clearAuto();
+    });
+}
+
+function _scheduleAuto(ms){ _clearAuto(); _autoTimer = setTimeout(()=>refreshStatus(true), ms); }
+function _clearAuto(){ if(_autoTimer){ clearTimeout(_autoTimer); _autoTimer=null; } }
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+refreshStatus();
+</script>
+{% endblock %}

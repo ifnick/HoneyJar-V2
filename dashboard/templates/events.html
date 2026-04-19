@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% block content %}
+
+<!-- Filters -->
+<div class="pn" style="margin-bottom:16px">
+  <div class="ph"><span class="ph-t">Filters</span></div>
+  <div class="pb">
+    <form method="GET" id="filter-form">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:12px">
+        <div>
+          <label class="fl">Protocol</label>
+          <select name="proto" class="fi">
+            <option value="">All</option>
+            {% for p in protocols %}<option value="{{ p }}" {{ 'selected' if proto==p }}>{{ p }}</option>{% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="fl">Event Type</label>
+          <select name="type" class="fi">
+            <option value="">All</option>
+            {% for et in etypes %}<option value="{{ et }}" {{ 'selected' if etype_q==et }}>{{ et }}</option>{% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="fl">IP Address</label>
+          <input type="text" name="ip" value="{{ ip_q }}" placeholder="e.g. 1.2.3.4" class="fi"/>
+        </div>
+        <div>
+          <label class="fl">From</label>
+          <input type="datetime-local" name="from" value="{{ date_f }}" class="fi"/>
+        </div>
+        <div>
+          <label class="fl">To</label>
+          <input type="datetime-local" name="to" value="{{ date_t }}" class="fi"/>
+        </div>
+        <div>
+          <label class="fl">Per Page</label>
+          <select name="per_page" class="fi">
+            {% for n in [25,50,100,250] %}<option value="{{ n }}" {{ 'selected' if per_page==n }}>{{ n }}</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <button type="submit" class="btn btn-p">Apply Filters</button>
+        <a href="/events" class="btn">Clear</a>
+        <a href="/export/events.json?proto={{ proto }}&type={{ etype_q }}&ip={{ ip_q }}" class="btn">Export JSON</a>
+        <a href="/export/events.csv?proto={{ proto }}&type={{ etype_q }}&ip={{ ip_q }}" class="btn">Export CSV</a>
+        <a href="/export/events.txt?proto={{ proto }}&type={{ etype_q }}&ip={{ ip_q }}" class="btn">Export TXT</a>
+        <span class="mono" style="font-size:10px;color:var(--tx3);margin-left:auto">{{ logs.total }} events</span>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Table -->
+<div class="tw">
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Time (UTC)</th>
+        <th>Protocol</th>
+        <th>IP</th>
+        <th>Type</th>
+        <th>Username</th>
+        <th>Password</th>
+        <th>Path / Command</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for e in logs.items %}
+    <tr onclick="showEvent({{ e.id }})">
+      <td class="mono td-dim" style="font-size:10px">{{ e.id }}</td>
+      <td class="mono td-dim" style="white-space:nowrap;font-size:10px">{{ e.ts.strftime('%Y-%m-%d %H:%M:%S') if e.ts else '' }}</td>
+      <td><span class="chip {{ e.protocol|lower if e.protocol else '' }}">{{ e.protocol or '—' }}</span></td>
+      <td class="mono" style="white-space:nowrap">
+        {{ e.ip }}
+        <button class="cpb" onclick='event.stopPropagation();copyText({{ e.ip|tojson }},"IP")' title="Copy IP">{{ svgcopy }}</button>
+      </td>
+      <td><span class="chip {{ (e.event_type|lower).replace('_','') if e.event_type else '' }}">{{ e.event_type or '—' }}</span></td>
+      <td class="mono" style="color:var(--rd);white-space:nowrap">
+        {% if e.username %}
+          {{ e.username }}
+          <button class="cpb" onclick='event.stopPropagation();copyText({{ e.username|tojson }},"username")' title="Copy username">{{ svgcopy }}</button>
+        {% else %}<span class="td-dim">—</span>{% endif %}
+      </td>
+      <td class="mono" style="color:var(--rd);white-space:nowrap">
+        {% if e.password %}
+          {{ e.password }}
+          <button class="cpb" onclick='event.stopPropagation();copyText({{ e.password|tojson }},"password")' title="Copy password">{{ svgcopy }}</button>
+        {% else %}<span class="td-dim">—</span>{% endif %}
+      </td>
+      <td class="mono td-path td-dim">
+        {% set detail = e.command or e.path or '' %}
+        {{ detail[:80] }}{% if detail|length > 80 %}…{% endif %}
+        {% if detail %}
+          <button class="cpb" onclick='event.stopPropagation();copyText({{ detail|tojson }},"detail")' title="Copy">{{ svgcopy }}</button>
+        {% endif %}
+      </td>
+      <td>
+        <div class="row" style="gap:4px" onclick="event.stopPropagation()">
+          <button class="btn btn-sm" onclick="showEvent({{ e.id }})">Detail</button>
+          {% if e.username %}
+          <button class="btn btn-sm" onclick='copyText({{ (e.username + ":" + (e.password or ""))|tojson }},"combo")'>Copy combo</button>
+          {% endif %}
+          <a href="/events?ip={{ e.ip }}" class="btn btn-sm">By IP</a>
+          <button class="btn btn-sm btn-rd" onclick='blockIp({{ e.ip|tojson }})'>Block</button>
+        </div>
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="9" class="empty">No events match the current filters.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+  <!-- Pagination -->
+  {% if logs.pages > 1 %}
+  <div class="pgr">
+    <span>Page {{ logs.page }} of {{ logs.pages }}</span>
+    <div class="pl">
+      {% if logs.has_prev %}
+        <a href="?page={{ logs.page-1 }}&proto={{ proto }}&type={{ etype_q }}&ip={{ ip_q }}&from={{ date_f }}&to={{ date_t }}&per_page={{ per_page }}">&laquo;</a>
+      {% endif %}
+      {% for p in logs.iter_pages(left_edge=1,right_edge=1,left_current=2,right_current=2) %}
+        {% if p %}
+          {% if p == logs.page %}<span class="cur">{{ p }}</span>
+          {% else %}<a href="?page={{ p }}&proto={{ proto }}&type={{ etype_q }}&ip={{ ip_q }}&from={{ date_f }}&to={{ date_t }}&per_page={{ per_page }}">{{ p }}</a>{% endif %}
+        {% else %}<span>&hellip;</span>{% endif %}
+      {% endfor %}
+      {% if logs.has_next %}
+        <a href="?page={{ logs.page+1 }}&proto={{ proto }}&type={{ etype_q }}&ip={{ ip_q }}&from={{ date_f }}&to={{ date_t }}&per_page={{ per_page }}">&raquo;</a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}
+{% block scripts %}{% endblock %}

@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" font-family="system-ui,-apple-system,sans-serif">
+  <!-- background -->
+  <rect width="1200" height="630" fill="#0d1117"/>
+
+  <!-- subtle dot grid -->
+  <defs>
+    <pattern id="dots" width="32" height="32" patternUnits="userSpaceOnUse">
+      <circle cx="1" cy="1" r="1" fill="#161b22"/>
+    </pattern>
+  </defs>
+  <rect width="1200" height="630" fill="url(#dots)"/>
+
+  <!-- top accent bar -->
+  <rect x="0" y="0" width="1200" height="4" fill="#f0b429"/>
+
+  <!-- ── Honey Jar icon ─────────────────────────────────────── -->
+  <!-- jar body -->
+  <rect x="100" y="175" width="200" height="220" rx="44" fill="#f0b429"/>
+  <!-- shine -->
+  <rect x="124" y="205" width="52" height="155" rx="26" fill="rgba(255,255,255,0.20)"/>
+  <!-- label band -->
+  <rect x="124" y="255" width="152" height="80" rx="8" fill="rgba(0,0,0,0.18)"/>
+  <!-- lid -->
+  <rect x="114" y="108" width="172" height="78" rx="36" fill="#c07800"/>
+  <!-- cap -->
+  <rect x="152" y="70" width="96" height="52" rx="26" fill="#9a5c00"/>
+  <!-- drip -->
+  <path d="M292 270 Q336 308 292 358" fill="none" stroke="#c8860a" stroke-width="14" stroke-linecap="round"/>
+  <!-- ──────────────────────────────────────────────────────── -->
+
+  <!-- brand name -->
+  <text x="360" y="250" font-size="96" font-weight="800" fill="#f0b429" letter-spacing="-3">HoneyJar</text>
+  <!-- version tag -->
+  <rect x="362" y="265" width="56" height="26" rx="6" fill="rgba(240,180,41,0.15)" stroke="rgba(240,180,41,0.35)" stroke-width="1"/>
+  <text x="390" y="283" font-size="13" font-weight="700" fill="#f0b429" text-anchor="middle" font-family="monospace">v2</text>
+  <!-- subtitle -->
+  <text x="362" y="316" font-size="30" fill="#8b949e" letter-spacing="0.5">Live Honeypot Monitoring Dashboard</text>
+
+  <!-- divider -->
+  <line x1="360" y1="346" x2="1080" y2="346" stroke="#21262d" stroke-width="1.5"/>
+
+  <!-- protocol chips -->
+  <rect x="362" y="368" width="88" height="34" rx="7" fill="rgba(240,180,41,0.10)" stroke="rgba(240,180,41,0.28)" stroke-width="1.2"/>
+  <text x="406" y="390" font-size="14" font-weight="700" fill="#f0b429" text-anchor="middle" font-family="monospace">SSH</text>
+
+  <rect x="464" y="368" width="104" height="34" rx="7" fill="rgba(63,185,80,0.10)" stroke="rgba(63,185,80,0.28)" stroke-width="1.2"/>
+  <text x="516" y="390" font-size="14" font-weight="700" fill="#3fb950" text-anchor="middle" font-family="monospace">TELNET</text>
+
+  <rect x="582" y="368" width="88" height="34" rx="7" fill="rgba(248,81,73,0.10)" stroke="rgba(248,81,73,0.28)" stroke-width="1.2"/>
+  <text x="626" y="390" font-size="14" font-weight="700" fill="#f85149" text-anchor="middle" font-family="monospace">HTTP</text>
+
+  <rect x="684" y="368" width="72" height="34" rx="7" fill="rgba(88,166,255,0.10)" stroke="rgba(88,166,255,0.28)" stroke-width="1.2"/>
+  <text x="720" y="390" font-size="14" font-weight="700" fill="#58a6ff" text-anchor="middle" font-family="monospace">FTP</text>
+
+  <rect x="770" y="368" width="78" height="34" rx="7" fill="rgba(188,140,255,0.10)" stroke="rgba(188,140,255,0.28)" stroke-width="1.2"/>
+  <text x="809" y="390" font-size="14" font-weight="700" fill="#bc8cff" text-anchor="middle" font-family="monospace">TFTP</text>
+
+  <!-- feature lines -->
+  <text x="364" y="456" font-size="22" fill="#484f58">Real-time attack capture · Credential logging · Geo IP mapping</text>
+  <text x="364" y="490" font-size="22" fill="#484f58">Session replay · File analysis · Live block &amp; export</text>
+
+  <!-- bottom border -->
+  <rect x="1" y="1" width="1198" height="628" fill="none" stroke="#21262d" stroke-width="2"/>
+</svg>

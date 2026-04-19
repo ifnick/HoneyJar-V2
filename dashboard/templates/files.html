@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="sg" style="margin-bottom:20px">
+  <div class="sc">
+    <div class="sc-ic ic-p">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--purple)" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13,2 13,9 20,9"/></svg>
+    </div>
+    <div class="sc-l">Captured Files</div>
+    <div class="sc-v p">{{ logs.total }}</div>
+    <div class="sc-s">uploads &amp; downloads</div>
+  </div>
+  <div class="sc">
+    <div class="sc-ic ic-b">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2"><polyline points="8,17 12,21 16,17"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29"/></svg>
+    </div>
+    <div class="sc-l">Total Size</div>
+    <div class="sc-v b">
+      {% if total_size > 1048576 %}{{ (total_size/1048576)|round(1) }} MB
+      {% elif total_size > 1024 %}{{ (total_size/1024)|round(1) }} KB
+      {% else %}{{ total_size }} B{% endif %}
+    </div>
+    <div class="sc-s">raw payload bytes stored</div>
+  </div>
+  <div class="sc" style="grid-column:span 2">
+    <div class="sc-ic ic-r">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    </div>
+    <div class="sc-l">Safety notice</div>
+    <div class="sc-v" style="font-size:13px;font-weight:600;color:var(--text-muted)">Content is stored as raw bytes in the database.</div>
+    <div class="sc-s">files are never written to disk or executed &mdash; download at your own risk</div>
+  </div>
+</div>
+
+<!-- Filters -->
+<div class="pn" style="margin-bottom:16px">
+  <div class="ph"><span class="ph-t">Filters</span></div>
+  <div class="pb">
+    <form method="GET">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+        <div>
+          <label class="fl">Protocol</label>
+          <select name="proto" class="fi" style="width:140px">
+            <option value="">All</option>
+            {% for p in protocols %}
+            <option value="{{ p }}" {{ 'selected' if proto==p }}>{{ p }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="fl">Direction</label>
+          <select name="dir" class="fi" style="width:130px">
+            <option value="">All</option>
+            <option value="upload"   {{ 'selected' if dir_q=='upload' }}>Upload (attacker → us)</option>
+            <option value="download" {{ 'selected' if dir_q=='download' }}>Download (us → attacker)</option>
+          </select>
+        </div>
+        <div>
+          <label class="fl">IP</label>
+          <input type="text" name="ip" value="{{ ip_q }}" placeholder="filter..." class="fi" style="width:160px"/>
+        </div>
+        <div>
+          <label class="fl">Per Page</label>
+          <select name="per_page" class="fi" style="width:100px">
+            {% for n in [25,50,100] %}
+            <option value="{{ n }}" {{ 'selected' if per_page==n }}>{{ n }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <button type="submit" class="btn btn-p">Apply</button>
+        <a href="/files" class="btn">Clear</a>
+        <span class="mono" style="font-size:10px;color:var(--text-dim);margin-left:auto">{{ logs.total }} files</span>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="tw">
+  <table>
+    <thead>
+      <tr>
+        <th>Time (UTC)</th>
+        <th>Protocol</th>
+        <th>Session</th>
+        <th>Direction</th>
+        <th>Filename</th>
+        <th>Size</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for f in logs.items %}
+    <tr>
+      <td class="mono td-dim" style="font-size:10px;white-space:nowrap">{{ f.ts.strftime('%Y-%m-%d %H:%M:%S') if f.ts else '' }}</td>
+      <td><span class="chip {{ f.protocol|lower if f.protocol else '' }}">{{ f.protocol or '—' }}</span></td>
+      <td class="mono" style="white-space:nowrap">
+        <a href="/sessions?ip={{ f.ip }}&proto={{ f.protocol }}" style="color:var(--blue);text-decoration:none" title="View session">{{ f.ip }}</a>
+        <button class="cpb" onclick='copyText({{ f.ip|tojson }},"IP")' title="Copy IP">{{ svgcopy }}</button>
+      </td>
+      <td>
+        {% if f.direction == 'upload' %}
+          <span class="chip upload">&#8593; upload</span>
+        {% else %}
+          <span class="chip download">&#8595; download</span>
+        {% endif %}
+      </td>
+      <td class="mono" style="color:var(--blue);max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+        {{ f.filename }}
+        <button class="cpb" onclick='copyText({{ f.filename|tojson }},"filename")' title="Copy filename">{{ svgcopy }}</button>
+      </td>
+      <td class="mono td-dim" style="white-space:nowrap">
+        {% if f.size > 1048576 %}{{ (f.size/1048576)|round(1) }} MB
+        {% elif f.size > 1024 %}{{ (f.size/1024)|round(1) }} KB
+        {% else %}{{ f.size }} B{% endif %}
+      </td>
+      <td>
+        <div class="row" style="gap:4px">
+          <button class="btn btn-sm btn-gr" onclick='warnDownload({{ f.id }}, {{ f.filename|tojson }})'>ZIP</button>
+          <button class="btn btn-sm" onclick="showHex({{ f.id }})">Hex</button>
+          <button class="btn btn-sm" onclick="copyB64({{ f.id }})">B64</button>
+        </div>
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="7" class="empty">No files captured yet. FTP uploads, TFTP writes, and HTTP POST bodies will appear here.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+  {% if logs.pages > 1 %}
+  <div class="pgr">
+    <span>Page {{ logs.page }} of {{ logs.pages }}</span>
+    <div class="pl">
+      {% if logs.has_prev %}<a href="?page={{ logs.page-1 }}&proto={{ proto }}&dir={{ dir_q }}&ip={{ ip_q }}&per_page={{ per_page }}">&laquo;</a>{% endif %}
+      {% for p in logs.iter_pages(left_edge=1,right_edge=1,left_current=2,right_current=2) %}
+        {% if p %}{% if p==logs.page %}<span class="cur">{{ p }}</span>
+        {% else %}<a href="?page={{ p }}&proto={{ proto }}&dir={{ dir_q }}&ip={{ ip_q }}&per_page={{ per_page }}">{{ p }}</a>{% endif %}
+        {% else %}<span>&hellip;</span>{% endif %}
+      {% endfor %}
+      {% if logs.has_next %}<a href="?page={{ logs.page+1 }}&proto={{ proto }}&dir={{ dir_q }}&ip={{ ip_q }}&per_page={{ per_page }}">&raquo;</a>{% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}
+{% block scripts %}
+<script>
+function warnDownload(fid, filename){
+  const html = `
+    <div style="background:rgba(248,81,73,.08);border:1px solid rgba(248,81,73,.25);border-radius:6px;padding:14px 16px;margin-bottom:16px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <span style="font-weight:700;color:var(--red);font-size:13px">MALWARE WARNING</span>
+      </div>
+      <p style="font-family:var(--mono);font-size:11px;line-height:1.7;color:var(--text-muted)">
+        This file was captured from a live attacker.<br>
+        It <strong style="color:var(--red)">may contain malicious code</strong>.<br>
+        The file is wrapped in a ZIP archive for safer transport.<br>
+        <strong>Never execute it outside an isolated sandbox.</strong>
+      </p>
+    </div>
+    <div style="font-family:var(--mono);font-size:11px;color:var(--text-dim);margin-bottom:16px">File: <span style="color:var(--blue)">${esc(filename)}</span></div>
+    <div style="display:flex;gap:8px">
+      <a href="/files/${fid}/download.zip" class="btn btn-rd" style="font-weight:700">I understand — Download ZIP</a>
+      <button class="btn" onclick="closeModal()">Cancel</button>
+    </div>`;
+  openModal('Download Captured File', html);
+}
+
+function copyB64(fid){
+  fetch('/files/' + fid + '/download')
+    .then(r => r.arrayBuffer())
+    .then(buf => {
+      const bytes = new Uint8Array(buf);
+      let bin = '';
+      for(let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+      const b64 = btoa(bin);
+      copyText(b64, 'base64');
+    })
+    .catch(() => toast('Failed to fetch file', 'err'));
+}
+
+function showHex(fid){
+  fetch('/files/' + fid + '/download')
+    .then(r => r.arrayBuffer())
+    .then(buf => {
+      const bytes = new Uint8Array(buf);
+      const lines = [];
+      for(let i = 0; i < Math.min(bytes.length, 2048); i += 16){
+        const chunk  = bytes.slice(i, i+16);
+        const hex    = Array.from(chunk).map(b=>b.toString(16).padStart(2,'0')).join(' ');
+        const ascii  = Array.from(chunk).map(b=>(b>=32&&b<127)?String.fromCharCode(b):'.').join('');
+        lines.push(i.toString(16).padStart(8,'0') + '  ' + hex.padEnd(47) + '  |' + ascii + '|');
+      }
+      if(bytes.length > 2048) lines.push('... ' + (bytes.length - 2048) + ' more bytes ...');
+      const hexStr = lines.join('\n');
+      const html = `
+        <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center">
+          <span class="mono" style="font-size:10px;color:var(--text-dim)">${bytes.length} bytes</span>
+          <button class="btn btn-sm" onclick="copyText(${JSON.stringify(hexStr)},'hex dump')">Copy hex</button>
+        </div>
+        <pre class="jv" style="font-size:10px">${esc(hexStr)}</pre>`;
+      openModal('Hex View — File #' + fid, html);
+    });
+}
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+</script>
+{% endblock %}

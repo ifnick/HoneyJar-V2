@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block content %}
+
+<!-- Filters -->
+<div class="pn" style="margin-bottom:16px">
+  <div class="ph"><span class="ph-t">Filters</span><span class="ph-s">{{ logs.total }} payloads</span></div>
+  <div class="pb">
+    <form method="GET">
+      <div class="row">
+        <div>
+          <label class="fl">Protocol</label>
+          <select name="proto" class="fi" style="width:140px">
+            <option value="">All</option>
+            <option value="SSH" {{ 'selected' if proto=='SSH' }}>SSH</option>
+            <option value="TELNET" {{ 'selected' if proto=='TELNET' }}>TELNET</option>
+            <option value="HTTP" {{ 'selected' if proto=='HTTP' }}>HTTP</option>
+            <option value="FTP" {{ 'selected' if proto=='FTP' }}>FTP</option>
+            <option value="TFTP" {{ 'selected' if proto=='TFTP' }}>TFTP</option>
+          </select>
+        </div>
+        <button type="submit" class="btn btn-p" style="align-self:flex-end">Apply</button>
+        <a href="/payloads" class="btn" style="align-self:flex-end">Clear</a>
+        <a href="/export/events.json?type=COMMAND&proto={{ proto }}" class="btn" style="align-self:flex-end">Export JSON</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="tw">
+  <table>
+    <thead>
+      <tr>
+        <th>Time</th>
+        <th>Protocol</th>
+        <th>IP</th>
+        <th>Type</th>
+        <th>Payload / Path</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for e in logs.items %}
+    {% set payload = e.command or e.path or '' %}
+    <tr onclick="showEvent({{ e.id }})">
+      <td class="mono td-dim" style="font-size:10px;white-space:nowrap">{{ e.ts.strftime('%Y-%m-%d %H:%M:%S') if e.ts else '' }}</td>
+      <td><span class="chip {{ e.protocol|lower if e.protocol else '' }}">{{ e.protocol or '—' }}</span></td>
+      <td class="mono" style="white-space:nowrap">
+        {{ e.ip }}
+        <button class="cpb" onclick='event.stopPropagation();copyText({{ e.ip|tojson }},"IP")' title="Copy IP">{{ svgcopy }}</button>
+      </td>
+      <td><span class="chip {{ (e.event_type|lower).replace('_','') if e.event_type else '' }}">{{ e.event_type or '—' }}</span></td>
+      <td class="mono" style="color:var(--cy);max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+        {{ payload[:120] }}{% if payload|length > 120 %}…{% endif %}
+        {% if payload %}
+        <button class="cpb" onclick='event.stopPropagation();copyText({{ payload|tojson }},"payload")' title="Copy payload">{{ svgcopy }}</button>
+        {% endif %}
+      </td>
+      <td onclick="event.stopPropagation()">
+        <div class="row" style="gap:4px">
+          <button class="btn btn-sm" onclick="showEvent({{ e.id }})">Detail</button>
+          {% if payload %}
+          <button class="btn btn-sm" onclick='showHex({{ e.id }}, {{ payload|tojson }})'>Hex</button>
+          {% endif %}
+          <button class="btn btn-sm btn-rd" onclick='blockIp({{ e.ip|tojson }})'>Block</button>
+        </div>
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="6" class="empty">No payloads captured yet.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+  {% if logs.pages > 1 %}
+  <div class="pgr">
+    <span>Page {{ logs.page }} of {{ logs.pages }}</span>
+    <div class="pl">
+      {% if logs.has_prev %}<a href="?page={{ logs.page-1 }}&proto={{ proto }}">&laquo;</a>{% endif %}
+      {% for p in logs.iter_pages(left_edge=1,right_edge=1,left_current=2,right_current=2) %}
+        {% if p %}{% if p==logs.page %}<span class="cur">{{ p }}</span>
+        {% else %}<a href="?page={{ p }}&proto={{ proto }}">{{ p }}</a>{% endif %}
+        {% else %}<span>&hellip;</span>{% endif %}
+      {% endfor %}
+      {% if logs.has_next %}<a href="?page={{ logs.page+1 }}&proto={{ proto }}">&raquo;</a>{% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}
+{% block scripts %}
+<script>
+function showHex(id, text){
+  const bytes = new TextEncoder().encode(text);
+  const lines = [];
+  for(let i=0; i<Math.min(bytes.length,512); i+=16){
+    const chunk  = bytes.slice(i, i+16);
+    const hex    = Array.from(chunk).map(b=>b.toString(16).padStart(2,'0')).join(' ');
+    const ascii  = Array.from(chunk).map(b=>(b>=32&&b<127)?String.fromCharCode(b):'.').join('');
+    const offset = i.toString(16).padStart(8,'0');
+    lines.push(`${offset}  ${hex.padEnd(47)}  |${ascii}|`);
+  }
+  const hexStr = lines.join('\n');
+  const html = `
+    <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center">
+      <span class="mono" style="font-size:10px;color:var(--tx3)">${bytes.length} bytes</span>
+      <button class="btn btn-sm" onclick="copyText(${JSON.stringify(text)},'payload text')">Copy text</button>
+      <button class="btn btn-sm" onclick="copyText(${JSON.stringify(hexStr)},'hex dump')">Copy hex</button>
+    </div>
+    <pre class="jv" style="font-size:10px">${esc(hexStr)}</pre>`;
+  openModal('Hex View — Event #'+id, html);
+}
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+</script>
+{% endblock %}

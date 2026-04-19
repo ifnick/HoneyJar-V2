@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>HoneyJar &mdash; {{ title }}</title>
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg"/>
+<link rel="shortcut icon" href="/static/favicon.svg"/>
+<meta name="description" content="HoneyJar v2 — open-source honeypot dashboard. Real-time SSH, Telnet, HTTP, FTP &amp; TFTP attack monitoring with live geo mapping, credential capture, and session replay."/>
+<meta property="og:title" content="HoneyJar v2 — Live Honeypot Dashboard"/>
+<meta property="og:description" content="Real-time attack monitoring — SSH, Telnet, HTTP, FTP &amp; TFTP honeypots with live geo IP mapping, credential logging, and session replay."/>
+<meta property="og:image" content="{{ request.host_url }}static/preview.png"/>
+<meta property="og:image:width" content="1200"/>
+<meta property="og:image:height" content="630"/>
+<meta property="og:type" content="website"/>
+<meta property="og:url" content="{{ request.url }}"/>
+<meta name="twitter:card" content="summary_large_image"/>
+<meta name="twitter:title" content="HoneyJar v2 — Live Honeypot Dashboard"/>
+<meta name="twitter:description" content="Real-time SSH, Telnet, HTTP, FTP &amp; TFTP honeypot monitoring with geo mapping and credential capture."/>
+<meta name="twitter:image" content="{{ request.host_url }}static/preview.png"/>
+{% block head %}{% endblock %}
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap');
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0 }
+
+:root {
+  --bg: #0d1117;
+  --bg2: #161b22;
+  --bg3: #1c2330;
+  --bg4: #21262d;
+  --border: #30363d;
+  --border-sub: #21262d;
+  --yellow: #f0b429;
+  --yellow-faint: rgba(240,180,41,.08);
+  --yellow-dim: rgba(240,180,41,.18);
+  --green: #3fb950;
+  --red: #f85149;
+  --blue: #58a6ff;
+  --purple: #bc8cff;
+  --teal: #39d353;
+  --text: #e6edf3;
+  --text-muted: #8b949e;
+  --text-dim: #484f58;
+  --sans: 'Inter', sans-serif;
+  --mono: 'JetBrains Mono', monospace;
+  --sidebar-w: 230px;
+  --radius: 8px;
+  --radius-sm: 6px;
+  /* shorthand aliases used in inline styles and JS-generated HTML */
+  --ac: var(--yellow);
+  --rd: var(--red);
+  --gr: var(--green);
+  --bl: var(--blue);
+  --pu: var(--purple);
+  --cy: var(--teal);
+  --tx2: var(--text-muted);
+  --tx3: var(--text-dim);
+  --bd2: var(--border-sub);
+  --r2: var(--radius-sm);
+  --fm: var(--mono);
+}
+
+html, body { height: 100% }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.5;
+  display: flex;
+  min-height: 100vh;
+}
+
+/* sidebar shell */
+.sb {
+  width: var(--sidebar-w);
+  min-height: 100vh;
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  position: fixed;
+  top: 0; left: 0; bottom: 0;
+  display: flex;
+  flex-direction: column;
+  z-index: 100;
+  overflow-y: auto;
+}
+.sb-hd {
+  padding: 20px 16px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.sb-ico {
+  width: 32px; height: 32px;
+  background: var(--yellow);
+  border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  font-size: 17px;
+}
+.sb-name { font-weight: 800; font-size: 15px; letter-spacing: -.3px }
+.sb-name span { color: var(--yellow) }
+.sb-tag { font-family: var(--mono); font-size: 9px; color: var(--text-dim); margin-top: 1px }
+
+.sb-sec {
+  padding: 14px 14px 4px;
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--text-dim);
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+}
+.sb-nav { padding: 0 6px; display: flex; flex-direction: column; gap: 1px }
+.sb-nav a {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--text-muted);
+  text-decoration: none;
+  padding: 7px 10px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  transition: background .1s, color .1s;
+}
+.sb-nav a:hover { color: var(--text); background: var(--bg3) }
+.sb-nav a.on { color: var(--yellow); background: var(--yellow-faint) }
+.sb-nav a svg { width: 14px; height: 14px; flex-shrink: 0; opacity: .6 }
+.sb-nav a.on svg { opacity: 1 }
+/* little badge for counts, only used on events page link */
+.sb-nav a .ct {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 10px;
+  background: var(--bg4);
+  color: var(--text-dim);
+  padding: 1px 6px;
+  border-radius: 20px;
+}
+.sb-nav a.on .ct { background: var(--yellow-dim); color: var(--yellow) }
+
+.sb-div { margin: 5px 12px; height: 1px; background: var(--border-sub) }
+
+.sb-live {
+  margin: 0 8px 6px;
+  background: var(--bg3);
+  border: 1px solid var(--border-sub);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.sb-dot {
+  width: 7px; height: 7px;
+  background: var(--green);
+  border-radius: 50%;
+  position: relative;
+  flex-shrink: 0;
+}
+.sb-dot::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 1px solid var(--green);
+  animation: pulse 2s ease-out infinite;
+}
+@keyframes pulse {
+  0%   { opacity: .7; transform: scale(1) }
+  100% { opacity: 0;  transform: scale(2.4) }
+}
+.sb-live-t { font-family: var(--mono); font-size: 9px; color: var(--text-dim) }
+
+.sb-ft {
+  margin-top: auto;
+  padding: 8px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.sb-ft a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-dim);
+  text-decoration: none;
+  font-size: 12px;
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  transition: color .1s, background .1s;
+}
+.sb-ft a:hover { color: var(--red); background: rgba(248,81,73,.08) }
+
+/* page layout */
+.mn { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; min-height: 100vh }
+.tb {
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg2);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+.tb-l { display: flex; flex-direction: column }
+.tb-t { font-size: 17px; font-weight: 700; letter-spacing: -.3px }
+.tb-s { font-family: var(--mono); font-size: 10px; color: var(--text-dim); margin-top: 1px }
+.tb-r { display: flex; align-items: center; gap: 10px }
+.tb-ck {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  background: var(--bg3);
+  border: 1px solid var(--border-sub);
+  padding: 4px 11px;
+  border-radius: 20px;
+}
+.tb-ck span { color: var(--yellow) }
+.ct { padding: 24px; flex: 1 }
+
+/* stat cards */
+.sg { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 22px }
+.sc {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px;
+  position: relative;
+  overflow: hidden;
+  transition: border-color .15s, transform .1s;
+}
+.sc:hover { border-color: rgba(240,180,41,.25); transform: translateY(-1px) }
+.sc::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--yellow);
+  opacity: 0;
+  transition: opacity .15s;
+}
+.sc:hover::before { opacity: 1 }
+.sc-ic {
+  width: 32px; height: 32px;
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 12px;
+}
+.ic-g  { background: var(--yellow-dim) }
+.ic-gr { background: rgba(63,185,80,.12) }
+.ic-r  { background: rgba(248,81,73,.12) }
+.ic-b  { background: rgba(88,166,255,.12) }
+.ic-p  { background: rgba(188,140,255,.12) }
+.sc-l { font-size: 11px; font-weight: 500; color: var(--text-muted); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 4px }
+.sc-v { font-size: 26px; font-weight: 800; letter-spacing: -1px; line-height: 1 }
+.sc-v.g  { color: var(--yellow) }
+.sc-v.gr { color: var(--green) }
+.sc-v.r  { color: var(--red) }
+.sc-v.b  { color: var(--blue) }
+.sc-v.p  { color: var(--purple) }
+.sc-s { font-family: var(--mono); font-size: 10px; color: var(--text-dim); margin-top: 6px }
+
+/* panel cards */
+.pn { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 16px; overflow: hidden }
+.ph {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.ph-t { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 7px }
+.ph-s { font-family: var(--mono); font-size: 10px; color: var(--text-dim) }
+.pb { padding: 16px }
+
+/* data tables */
+.tw { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 16px }
+table { width: 100%; border-collapse: collapse }
+thead th {
+  padding: 8px 14px;
+  text-align: left;
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 500;
+  color: var(--text-dim);
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  background: var(--bg3);
+  border-bottom: 1px solid var(--border);
+}
+tbody tr { border-bottom: 1px solid var(--border-sub); transition: background .07s; cursor: pointer }
+tbody tr:last-child { border-bottom: none }
+tbody tr:hover { background: rgba(240,180,41,.03) }
+tbody td { padding: 8px 14px; font-family: var(--mono); font-size: 11px; color: var(--text) }
+.td-dim { color: var(--text-muted) }
+.td-path { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.empty { text-align: center; padding: 44px; font-family: var(--mono); font-size: 12px; color: var(--text-dim) }
+
+/* protocol / event type badges */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  font-size: 9px;
+  border-radius: 4px;
+  font-weight: 600;
+  font-family: var(--mono);
+  white-space: nowrap;
+}
+.chip.ssh        { background: rgba(240,180,41,.1);  color: var(--yellow); border: 1px solid rgba(240,180,41,.2) }
+.chip.telnet     { background: rgba(63,185,80,.1);   color: var(--green);  border: 1px solid rgba(63,185,80,.2) }
+.chip.http,
+.chip.https      { background: rgba(248,81,73,.1);   color: var(--red);    border: 1px solid rgba(248,81,73,.2) }
+.chip.ftp        { background: rgba(88,166,255,.1);  color: var(--blue);   border: 1px solid rgba(88,166,255,.2) }
+.chip.tftp       { background: rgba(188,140,255,.1); color: var(--purple); border: 1px solid rgba(188,140,255,.2) }
+.chip.credential,
+.chip.cred       { background: rgba(248,81,73,.1);   color: var(--red);    border: 1px solid rgba(248,81,73,.2) }
+.chip.command,
+.chip.cmd        { background: rgba(57,211,83,.1);   color: var(--teal);   border: 1px solid rgba(57,211,83,.2) }
+.chip.connect,
+.chip.conn       { background: rgba(88,166,255,.1);  color: var(--blue);   border: 1px solid rgba(88,166,255,.18) }
+.chip.upload,
+.chip.download   { background: rgba(188,140,255,.1); color: var(--purple); border: 1px solid rgba(188,140,255,.2) }
+.chip.disconnect { color: var(--text-dim); border: 1px solid var(--border) }
+.chip.event      { color: var(--text-muted); border: 1px solid var(--border) }
+
+/* inline copy icon buttons */
+.cpb {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px; height: 22px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: border-color .1s, color .1s, background .1s;
+  flex-shrink: 0;
+  vertical-align: middle;
+  margin-left: 4px;
+}
+.cpb:hover { border-color: var(--yellow); color: var(--yellow); background: var(--yellow-faint) }
+.cpb svg { width: 11px; height: 11px; pointer-events: none }
+
+/* buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 13px;
+  font-family: var(--mono);
+  font-size: 11px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  text-decoration: none;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  transition: border-color .1s, color .1s;
+}
+.btn:hover { border-color: rgba(240,180,41,.35); color: var(--yellow) }
+.btn-p {
+  background: var(--yellow);
+  color: #0d1117;
+  border-color: var(--yellow);
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 12px;
+  padding: 7px 16px;
+}
+.btn-p:hover { opacity: .87; color: #0d1117 }
+.btn-sm { padding: 4px 9px; font-size: 10px }
+.btn-rd { border-color: rgba(248,81,73,.3); color: var(--red) }
+.btn-rd:hover { border-color: var(--red); background: rgba(248,81,73,.08); color: var(--red) }
+.btn-gr { border-color: rgba(63,185,80,.3); color: var(--green) }
+.btn-gr:hover { border-color: var(--green); background: rgba(63,185,80,.08); color: var(--green) }
+
+/* form inputs */
+.fi {
+  width: 100%;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  outline: none;
+  transition: border-color .1s;
+}
+.fi:focus { border-color: var(--yellow) }
+.fi::placeholder { color: var(--text-dim) }
+select.fi option { background: var(--bg3) }
+.fl { font-size: 11px; font-weight: 600; color: var(--text-muted); margin-bottom: 4px; display: block }
+.fg { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 14px }
+
+/* pagination bar */
+.pgr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 14px;
+  border-top: 1px solid var(--border);
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-dim);
+}
+.pl { display: flex; gap: 3px }
+.pl a, .pl span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px; height: 26px;
+  border: 1px solid var(--border);
+  text-decoration: none;
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: 11px;
+  border-radius: var(--radius-sm);
+  transition: border-color .1s, color .1s;
+}
+.pl a:hover { border-color: var(--yellow); color: var(--yellow) }
+.pl span.cur { border-color: var(--yellow); color: var(--yellow); background: var(--yellow-faint) }
+
+/* modal overlay */
+.modal-bg {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.65);
+  z-index: 500;
+  display: none;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 40px 16px;
+  overflow-y: auto;
+}
+.modal-bg.open { display: flex }
+.modal {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  width: 100%;
+  max-width: 800px;
+  overflow: hidden;
+  animation: modalIn .16s ease;
+}
+@keyframes modalIn { from { opacity: 0; transform: scale(.97) } to { opacity: 1; transform: none } }
+.modal-hd {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.modal-t { font-size: 14px; font-weight: 700 }
+.modal-cl {
+  width: 28px; height: 28px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: border-color .1s, color .1s;
+}
+.modal-cl:hover { border-color: var(--red); color: var(--red) }
+.modal-bd { padding: 18px; max-height: 70vh; overflow-y: auto }
+
+pre.jv {
+  background: var(--bg3);
+  border: 1px solid var(--border-sub);
+  border-radius: var(--radius-sm);
+  padding: 14px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text);
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  margin-top: 10px;
+}
+
+/* toast notifications */
+.tr {
+  position: fixed;
+  top: 72px;
+  right: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 9999;
+  width: 280px;
+  pointer-events: none;
+}
+.toast {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--yellow);
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text);
+  display: flex;
+  gap: 8px;
+  animation: toastIn .15s ease;
+  box-shadow: 0 6px 24px rgba(0,0,0,.5);
+  pointer-events: auto;
+}
+.toast.ok  { border-left-color: var(--green) }
+.toast.err { border-left-color: var(--red) }
+@keyframes toastIn { from { opacity: 0; transform: translateY(-8px) } to { opacity: 1; transform: none } }
+
+/* leaflet dark theme overrides */
+#geo-map { display: block }
+.leaflet-container { background: #0d1117; font-family: var(--sans) }
+.leaflet-popup-content-wrapper {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 6px 24px rgba(0,0,0,.5);
+  color: var(--text);
+}
+.leaflet-popup-tip { background: var(--bg2) }
+.leaflet-popup-close-button { color: var(--text-dim) !important }
+.leaflet-control-zoom a {
+  background: var(--bg2) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+.leaflet-control-zoom a:hover { background: var(--bg3) !important; color: var(--yellow) !important }
+
+/* utils */
+.mono { font-family: var(--mono) }
+.tx-ac  { color: var(--yellow) }
+.tx-gr  { color: var(--green) }
+.tx-rd  { color: var(--red) }
+.tx-bl  { color: var(--blue) }
+.tx-pu  { color: var(--purple) }
+.tx-dim { color: var(--text-muted) }
+.sep    { height: 1px; background: var(--border); margin: 16px 0 }
+.row    { display: flex; align-items: center; gap: 8px; flex-wrap: wrap }
+.cg2    { display: grid; grid-template-columns: 1fr 1fr; gap: 14px }
+@media (max-width: 820px) { .cg2 { grid-template-columns: 1fr } }
+
+.ham-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color .1s, border-color .1s;
+}
+.ham-btn:hover { color: var(--yellow); border-color: rgba(240,180,41,.35); }
+.sb-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.55);
+  z-index: 99;
+}
+.sb-backdrop.open { display: block; }
+
+@media (max-width: 768px) {
+  .ham-btn { display: flex; }
+  .sb { transform: translateX(-100%); transition: transform .22s ease; }
+  .sb.open { transform: translateX(0); box-shadow: 6px 0 32px rgba(0,0,0,.6); }
+  .mn { margin-left: 0 !important; }
+  .tb { padding: 10px 14px; gap: 8px; flex-wrap: nowrap; }
+  .tb-ck { display: none; }
+  .tb-r > a.btn { display: none; }
+  .tb-l .tb-s { display: none; }
+  .ct { padding: 14px; }
+  .sg { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .sg .sc { padding: 14px; }
+  .sc-v { font-size: 22px; }
+  .tw { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .tw table { min-width: 520px; }
+  .pb { padding: 12px; }
+  .ph { padding: 10px 12px; }
+  .modal { margin: 0 8px; }
+}
+@media (max-width: 480px) {
+  .sg { grid-template-columns: 1fr; }
+  .sc-v { font-size: 28px; }
+  .tb-r { gap: 4px; }
+}
+</style>
+</head>
+<body>
+
+<div class="sb-backdrop" id="sb-backdrop" onclick="toggleSidebar()"></div>
+<aside class="sb" id="sb">
+  <div class="sb-hd">
+    <div class="sb-ico">&#x1F36F;</div>
+    <div>
+      <div class="sb-name">Honey<span>Jar</span></div>
+      <div class="sb-tag">v2 &mdash; live</div>
+    </div>
+  </div>
+
+  <div class="sb-sec">Monitor</div>
+  <nav class="sb-nav">
+    <a href="/overview"    class="{{ 'on' if active=='overview'    else '' }}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+      Overview
+    </a>
+    <a href="/events" class="{{ 'on' if active=='events' else '' }}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16"/><polyline points="14,2 14,8 20,8"/><path d="M20 8v12a2 2 0 0 1-2 2H8"/></svg>
+      Events
+    </a>
+    <a href="/credentials" class="{{ 'on' if active=='credentials' else '' }}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      Credentials
+    </a>
+    <a href="/sessions" class="{{ 'on' if active=='sessions' else '' }}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      Sessions
+    </a>
+    <a href="/payloads" class="{{ 'on' if active=='payloads' else '' }}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16,18 22,12 16,6"/><polyline points="8,6 2,12 8,18"/></svg>
+      Payloads
+    </a>
+    <a href="/files" class="{{ 'on' if active=='files' else '' }}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13,2 13,9 20,9"/></svg>
+      Files
+    </a>
+  </nav>
+
+  <div class="sb-div"></div>
+  <div class="sb-sec">Protocols</div>
+  <nav class="sb-nav">
+    <a href="/protocol/http" class="{{ 'on' if active=='http' else '' }}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+      HTTP / HTTPS
+    </a>
+    <a href="/protocol/ssh" class="{{ 'on' if active=='ssh' else '' }}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+      SSH
+    </a>
+    <a href="/protocol/telnet" class="{{ 'on' if active=='telnet' else '' }}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4,17 10,11 4,5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+      Telnet
+    </a>
+    <a href="/protocol/ftp" class="{{ 'on' if active=='ftp' else '' }}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13,2 13,9 20,9"/></svg>
+      FTP
+    </a>
+    <a href="/protocol/tftp" class="{{ 'on' if active=='tftp' else '' }}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
+      TFTP
+    </a>
+  </nav>
+
+  <div class="sb-div"></div>
+  <div class="sb-sec">Config</div>
+  <nav class="sb-nav">
+    <a href="/settings" class="{{ 'on' if active=='settings' else '' }}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+      Settings
+    </a>
+  </nav>
+
+  <div class="sb-div"></div>
+  <div class="sb-live">
+    <div class="sb-dot"></div>
+    <div class="sb-live-t">All sensors active</div>
+  </div>
+
+  <div class="sb-ft">
+    <a href="/logout">
+      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16,17 21,12 16,7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      Sign out
+    </a>
+  </div>
+</aside>
+
+<main class="mn">
+  <header class="tb">
+    <div style="display:flex;align-items:center;gap:10px;min-width:0">
+      <button class="ham-btn" onclick="toggleSidebar()" aria-label="Menu"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
+      <div class="tb-l">
+        <div class="tb-t">{{ title }}</div>
+        <div class="tb-s" id="tb-time">--</div>
+      </div>
+    </div>
+    <div class="tb-r">
+      <div class="tb-ck">Auto-refresh <span id="ar-indicator">OFF</span></div>
+      <button class="btn btn-sm" onclick="toggleAutoRefresh()" id="ar-btn">Enable</button>
+      <a href="/export/events.json" class="btn btn-sm">Export JSON</a>
+      <a href="/export/events.csv" class="btn btn-sm">Export CSV</a>
+    </div>
+  </header>
+
+  <div class="ct">
+    {% block content %}{% endblock %}
+  </div>
+</main>
+
+<!-- Toast region -->
+<div class="tr" id="tr"></div>
+
+<!-- Detail modal -->
+<div class="modal-bg" id="modal-bg" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-hd">
+      <div class="modal-t" id="modal-title">Event Detail</div>
+      <button class="modal-cl" onclick="closeModal()">&#x2715;</button>
+    </div>
+    <div class="modal-bd" id="modal-body"></div>
+  </div>
+</div>
+
+<script>
+// ── Time display ──────────────────────────────────────────────────────────
+function updateTime(){
+  const el = document.getElementById('tb-time');
+  if(el) el.textContent = new Date().toUTCString().replace(' GMT','') + ' UTC';
+}
+updateTime(); setInterval(updateTime, 1000);
+
+// ── Safe JS-in-HTML attribute quoting ────────────────────────────────────
+// JSON.stringify escapes " as \" but HTML parsers don't treat \" as an
+// escape — the " still closes a double-quoted attribute.  Single-quoted
+// HTML attributes are safe for JSON values (which never need ' escaped),
+// but values can contain bare ' chars (e.g. passwords).  We HTML-encode
+// them so the attribute stays valid and the browser decodes before JS runs.
+function jsq(v){
+  return JSON.stringify(v == null ? '' : v).replace(/'/g, '&#39;');
+}
+
+// ── Copy to clipboard ─────────────────────────────────────────────────────
+function copyText(text, label){
+  const str = String(text != null ? text : '');
+  const lbl = label || str.slice(0, 40);
+  const ok  = () => toast('Copied: ' + lbl, 'ok');
+  const err = () => toast('Copy failed', 'err');
+  // execCommand must run synchronously inside the click event —
+  // calling it from a Promise .catch() loses the user-gesture context
+  if(_legacyCopy(str)){ ok(); return; }
+  if(navigator.clipboard){
+    navigator.clipboard.writeText(str).then(ok).catch(err);
+  } else {
+    err();
+  }
+}
+function _legacyCopy(str){
+  try {
+    const el = document.createElement('input');
+    el.type  = 'text';
+    el.value = str;
+    el.style.cssText = 'position:fixed;top:0;left:0;width:2px;height:2px;opacity:0.01;border:none;outline:none;padding:0';
+    document.body.appendChild(el);
+    el.focus(); el.select(); el.setSelectionRange(0, el.value.length);
+    const worked = document.execCommand('copy');
+    document.body.removeChild(el);
+    return worked;
+  } catch(e){ return false; }
+}
+
+// ── Toast ────────────────────────────────────────────────────────────────
+function toast(msg, kind){
+  const tr = document.getElementById('tr');
+  const el = document.createElement('div');
+  el.className = 'toast ' + (kind||'');
+  el.textContent = msg;
+  tr.appendChild(el);
+  setTimeout(()=>{ el.style.opacity='0'; el.style.transform='translateX(14px)';
+    el.style.transition='all .3s'; setTimeout(()=>el.remove(), 300); }, 2800);
+}
+
+// ── Modal ────────────────────────────────────────────────────────────────
+function openModal(title, html){
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-body').innerHTML = html;
+  document.getElementById('modal-bg').classList.add('open');
+}
+function closeModal(){
+  document.getElementById('modal-bg').classList.remove('open');
+}
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeModal(); });
+
+// ── Event detail ─────────────────────────────────────────────────────────
+function showEvent(id){
+  fetch('/events/' + id)
+    .then(r=>r.json())
+    .then(d=>{
+      let html = buildDetailHTML(d);
+      openModal('Event #' + id + ' — ' + d.protocol + ' ' + d.event_type, html);
+    });
+}
+
+function buildDetailHTML(d){
+  const row = (k,v,copy)=>{
+    const cv = copy ? `<button class="cpb" onclick='copyText(${jsq(v)},${jsq(k)})' title="Copy">${svgCopy()}</button>` : '';
+    return `<tr><td style="color:var(--tx3);padding:5px 10px;white-space:nowrap;font-size:10px;width:130px">${k}</td>
+      <td style="padding:5px 10px;word-break:break-all;font-family:var(--fm);font-size:11px">${esc(v)||'<span style="color:var(--tx3)">—</span>'}${cv}</td></tr>`;
+  };
+  const fields = [
+    ['ID',d.id],['Protocol',d.protocol,true],['IP',d.ip,true],['Port',d.port],
+    ['Timestamp',d.ts],['Type',d.event_type],
+    ['Username',d.username,true],['Password',d.password,true],
+    ['Path',d.path,true],['Method',d.method],['Command',d.command,true],
+  ];
+  let tbl = `<table style="width:100%;border-collapse:collapse">${fields.map(([k,v,c])=>row(k,v,c)).join('')}</table>`;
+  if(d.data && typeof d.data === 'object' && Object.keys(d.data).length){
+    const raw = JSON.stringify(d.data, null, 2);
+    tbl += `<div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px;margin-bottom:4px">
+      <span style="font-size:11px;color:var(--tx2);font-weight:600">Raw JSON</span>
+      <button class="btn btn-sm" onclick='copyText(${jsq(raw)},"raw JSON")'>Copy JSON</button>
+    </div><pre class="jv">${esc(raw)}</pre>`;
+  }
+  return tbl;
+}
+
+function esc(s){
+  if(s===null||s===undefined) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function svgCopy(){
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+}
+
+// ── Session detail ────────────────────────────────────────────────────────
+function showSession(ip, protocol){
+  fetch(`/sessions/${encodeURIComponent(ip)}/${encodeURIComponent(protocol)}`)
+    .then(r=>r.json())
+    .then(events=>{
+      if(!events.length){ openModal('Session: ' + ip, '<p style="color:var(--tx3);padding:20px">No events found.</p>'); return; }
+      let html = `<div style="margin-bottom:10px;display:flex;gap:8px;align-items:center">
+        <span style="font-family:var(--fm);font-size:11px;color:var(--tx2)">${events.length} events</span>
+        <button class="btn btn-sm" onclick='copyText(${jsq(JSON.stringify(events,null,2))},"session JSON")'>Copy all JSON</button>
+      </div>`;
+      html += '<div style="display:flex;flex-direction:column;gap:6px">';
+      for(const e of events){
+        const typeColor = {CREDENTIAL:'var(--rd)',COMMAND:'var(--cy)',CONNECT:'var(--bl)',UPLOAD:'var(--pu)'}[e.event_type]||'var(--tx2)';
+        html += `<div style="background:var(--bg3);border:1px solid var(--bd2);border-radius:var(--r2);padding:8px 12px;cursor:pointer" onclick="showEvent(${e.id})">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+            <span style="font-family:var(--fm);font-size:9px;color:${typeColor};font-weight:700;background:rgba(0,0,0,.3);padding:1px 6px;border-radius:3px">${esc(e.event_type)}</span>
+            <span style="font-family:var(--fm);font-size:9px;color:var(--tx3)">${esc(e.ts)}</span>
+          </div>
+          ${e.command ? `<div style="font-family:var(--fm);font-size:11px;color:var(--cy)">&gt; ${esc(e.command)}</div>` : ''}
+          ${e.username ? `<div style="font-family:var(--fm);font-size:11px;color:var(--tx2)">user: <span style="color:var(--rd)">${esc(e.username)}</span> pass: <span style="color:var(--rd)">${esc(e.password||'')}</span></div>` : ''}
+          ${e.path ? `<div style="font-family:var(--fm);font-size:11px;color:var(--bl)">${esc(e.path)}</div>` : ''}
+        </div>`;
+      }
+      html += '</div>';
+      openModal(`Session: ${ip} / ${protocol}`, html);
+    });
+}
+
+// ── Live notifications + auto-refresh ────────────────────────────────────
+let arInterval = null;
+let _nTimer    = null;
+let arEnabled  = sessionStorage.getItem('ar') === '1';
+let _lastEid   = parseInt(sessionStorage.getItem('lastEid') || '0');
+let _lastFid   = parseInt(sessionStorage.getItem('lastFid') || '0');
+
+const _PC = {SSH:'#f0b429',TELNET:'#3fb950',HTTP:'#f85149',HTTPS:'#f85149',FTP:'#58a6ff',TFTP:'#bc8cff'};
+
+function _applyAR(on){
+  document.getElementById('ar-indicator').textContent = on ? 'ON' : 'OFF';
+  document.getElementById('ar-indicator').style.color = on ? 'var(--gr)' : '';
+  document.getElementById('ar-btn').textContent = on ? 'Disable' : 'Enable';
+}
+
+function toggleAutoRefresh(){
+  arEnabled = !arEnabled;
+  sessionStorage.setItem('ar', arEnabled ? '1' : '0');
+  _applyAR(arEnabled);
+  if(arEnabled){
+    arInterval = setInterval(()=>location.reload(), 10000);
+    _nTimer    = setInterval(_pollNotify, 5000);
+    _initNotifyPos();
+  } else {
+    clearInterval(arInterval); clearInterval(_nTimer);
+  }
+}
+
+function _initNotifyPos(){
+  if(_lastEid) return;
+  fetch('/api/recent?since=0').then(r=>r.json()).then(evts=>{
+    if(evts.length){ _lastEid=evts[0].id; sessionStorage.setItem('lastEid',_lastEid); }
+  }).catch(()=>{});
+  fetch('/api/recent-files?since=0').then(r=>r.json()).then(fs=>{
+    if(fs.length){ _lastFid=fs[0].id; sessionStorage.setItem('lastFid',_lastFid); }
+  }).catch(()=>{});
+}
+
+function _pollNotify(){
+  fetch('/api/recent?since='+_lastEid)
+    .then(r=>r.json())
+    .then(evts=>{
+      if(!evts.length) return;
+      _lastEid = Math.max(...evts.map(e=>e.id));
+      sessionStorage.setItem('lastEid',_lastEid);
+      evts.slice(0,3).reverse().forEach(_evtToast);
+    }).catch(()=>{});
+  fetch('/api/recent-files?since='+_lastFid)
+    .then(r=>r.json())
+    .then(fs=>{
+      if(!fs.length) return;
+      _lastFid = Math.max(...fs.map(f=>f.id));
+      sessionStorage.setItem('lastFid',_lastFid);
+      fs.slice(0,2).forEach(_fileNotify);
+    }).catch(()=>{});
+}
+
+function _evtToast(e){
+  const c = _PC[e.protocol]||'#8b949e';
+  const detail = e.username ? `${e.username}:${e.password||'?'}` :
+                 e.command  ? e.command.slice(0,48) :
+                 e.path     ? e.path.slice(0,48) : (e.event_type||'');
+  _notify(c,
+    `<span style="font-family:var(--mono);font-size:9px;font-weight:700;color:${c}">${esc(e.protocol||'')}</span>`+
+    `<span style="font-family:var(--mono);font-size:9px;color:var(--text-dim);margin-left:6px">${esc(e.ip||'')}</span>`,
+    esc(detail));
+}
+
+function _fileNotify(f){
+  const c = _PC[f.protocol]||'#bc8cff';
+  const d = f.direction==='upload'?'&#8593; upload':'&#8595; download';
+  _notify(c,
+    `<span style="font-family:var(--mono);font-size:9px;font-weight:700;color:${c}">FILE ${d}</span>`+
+    `<span style="font-family:var(--mono);font-size:9px;color:var(--text-dim);margin-left:6px">${esc(f.ip||'')}</span>`,
+    esc(f.filename||''));
+}
+
+function _notify(borderColor, titleHtml, bodyText){
+  const tr = document.getElementById('tr');
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.style.borderLeftColor = borderColor;
+  el.innerHTML = `<div style="display:flex;flex-direction:column;gap:3px;width:100%">
+    <div style="display:flex;align-items:center">${titleHtml}</div>
+    <div style="font-family:var(--mono);font-size:10px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${bodyText}</div>
+  </div>`;
+  tr.appendChild(el);
+  setTimeout(()=>{
+    el.style.transition='opacity .35s,transform .35s';
+    el.style.opacity='0'; el.style.transform='translateX(14px)';
+    setTimeout(()=>el.remove(),350);
+  }, 2500);
+}
+
+function blockIp(ip){
+  fetch('/api/block-ip',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ip})})
+    .then(r=>r.json())
+    .then(d=>{ d.ok ? toast('Blocked: '+ip,'ok') : toast('Block failed','err'); })
+    .catch(()=>toast('Block failed','err'));
+}
+
+if(arEnabled){ _applyAR(true); arInterval=setInterval(()=>location.reload(),10000); _nTimer=setInterval(_pollNotify,5000); }
+
+function toggleSidebar(){
+  const sb = document.getElementById('sb');
+  const bd = document.getElementById('sb-backdrop');
+  if(!sb||!bd) return;
+  const on = sb.classList.toggle('open');
+  bd.classList.toggle('open', on);
+  document.body.style.overflow = on ? 'hidden' : '';
+}
+</script>
+
+{% block scripts %}{% endblock %}
+</body>
+</html>

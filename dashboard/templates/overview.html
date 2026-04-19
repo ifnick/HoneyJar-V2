@@ -1,0 +1,240 @@
+{% extends "base.html" %}
+{% block head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+{% endblock %}
+{% block content %}
+
+<!-- live map -->
+<div class="pn" style="margin-bottom:20px">
+  <div class="ph">
+    <span class="ph-t">attack origins</span>
+    <span class="ph-s" id="map-status">loading...</span>
+  </div>
+  <div id="geo-map" style="height:340px"></div>
+</div>
+
+<!-- Stat cards -->
+<div class="sg">
+  <div class="sc">
+    <div class="sc-ic ic-g"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ac)" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
+    <div class="sc-l">Total Events</div>
+    <div class="sc-v g">{{ stats.total | default(0) }}</div>
+    <div class="sc-s">all protocols</div>
+  </div>
+  <div class="sc">
+    <div class="sc-ic ic-r"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+    <div class="sc-l">Credentials</div>
+    <div class="sc-v r">{{ stats.creds | default(0) }}</div>
+    <div class="sc-s">captured login attempts</div>
+  </div>
+  <div class="sc">
+    <div class="sc-ic ic-b"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div>
+    <div class="sc-l">Unique IPs</div>
+    <div class="sc-v b">{{ stats.unique_ips | default(0) }}</div>
+    <div class="sc-s">distinct attackers</div>
+  </div>
+  <div class="sc">
+    <div class="sc-ic ic-gr"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg></div>
+    <div class="sc-l">Last 24 Hours</div>
+    <div class="sc-v gr">{{ stats.last24h | default(0) }}</div>
+    <div class="sc-s">recent activity</div>
+  </div>
+  {% set _psc = {'SSH':['ic-g','g'],'TELNET':['ic-gr','gr'],'HTTP':['ic-r','r'],'HTTPS':['ic-r','r'],'FTP':['ic-b','b'],'TFTP':['ic-p','p']} %}
+  {% for row in stats.by_proto %}
+  {% set _s = _psc.get(row[0], ['ic-p','p']) %}
+  <div class="sc">
+    <div class="sc-ic {{ _s[0] }}"></div>
+    <div class="sc-l">{{ row[0] }}</div>
+    <div class="sc-v {{ _s[1] }}">{{ row[1] }}</div>
+    <div class="sc-s">events</div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="cg2">
+
+  <div class="pn">
+    <div class="ph"><span class="ph-t">Hourly Activity (24h)</span><span class="ph-s">events per hour</span></div>
+    <div class="pb"><canvas id="chart" style="height:180px"></canvas></div>
+  </div>
+
+  <div class="pn">
+    <div class="ph"><span class="ph-t">Protocol Breakdown</span></div>
+    <div class="pb">
+      {% set _bc = {'SSH':'var(--yellow)','TELNET':'var(--green)','HTTP':'var(--red)','HTTPS':'var(--red)','FTP':'var(--blue)','TFTP':'var(--purple)'} %}
+      {% for row in stats.by_proto %}
+      <div style="margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+          <span class="mono" style="font-size:11px;color:{{ _bc.get(row[0],'var(--text)') }}">{{ row[0] }}</span>
+          <span class="mono tx-dim" style="font-size:11px">{{ row[1] }}</span>
+        </div>
+        <div style="height:4px;background:var(--bg4);border-radius:2px;overflow:hidden">
+          <div style="height:100%;background:{{ _bc.get(row[0],'var(--ac)') }};width:{{ ((row[1] / (stats.total or 1)) * 100)|round(1) }}%;border-radius:2px;transition:width .6s"></div>
+        </div>
+      </div>
+      {% else %}
+      <p class="mono" style="color:var(--tx3);font-size:11px">No data yet.</p>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="pn">
+    <div class="ph">
+      <span class="ph-t">Top Attacker IPs</span>
+      <a href="/events" class="btn btn-sm">View all</a>
+    </div>
+    <div class="tw" style="border:none;border-radius:0;margin:0">
+      <table>
+        <thead><tr><th>IP</th><th>Events</th><th></th></tr></thead>
+        <tbody>
+        {% for row in stats.top_ips %}
+        <tr onclick="window.location='/events?ip={{ row[0] }}'">
+          <td class="mono">{{ row[0] }}<button class="cpb" onclick='event.stopPropagation();copyText({{ row[0]|tojson }},"IP")' title="Copy IP">{{ svgcopy }}</button></td>
+          <td class="mono tx-dim">{{ row[1] }}</td>
+          <td style="white-space:nowrap"><a href="/sessions?ip={{ row[0] }}" class="btn btn-sm">Sessions</a> <button class="btn btn-sm btn-rd" onclick='event.stopPropagation();blockIp({{ row[0]|tojson }})'>Block</button></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="3" class="empty">No events yet.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="pn" style="display:flex;flex-direction:column">
+    <div class="ph">
+      <span class="ph-t">Top Combos</span>
+      <a href="/credentials" class="btn btn-sm">View all</a>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:10px 16px">
+      {% for row in stats.top_combos %}
+      {% set combo = row[0] + ':' + row[1] %}
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border-sub)">
+        <span class="mono" style="font-size:11px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;margin-right:8px">
+          <span style="color:var(--red)">{{ row[0] }}</span><span style="color:var(--text-dim)">:</span><span style="color:var(--yellow)">{{ row[1] }}</span>
+          <button class="cpb" onclick='copyText({{ combo|tojson }},"combo")' title="Copy combo">{{ svgcopy }}</button>
+        </span>
+        <span class="mono tx-dim" style="font-size:10px;flex-shrink:0">{{ row[2] }}x</span>
+      </div>
+      {% else %}
+      <p class="mono" style="color:var(--text-dim);font-size:11px;padding:10px 0">No credentials captured yet.</p>
+      {% endfor %}
+    </div>
+  </div>
+
+</div>
+
+<div class="pn">
+  <div class="ph">
+    <span class="ph-t">Recent Events</span>
+    <div class="row"><a href="/events" class="btn btn-sm">View all</a></div>
+  </div>
+  <div class="tw" style="border:none;border-radius:0;margin:0">
+    <table>
+      <thead><tr><th>Time</th><th>Protocol</th><th>IP</th><th>Type</th><th>Detail</th><th></th></tr></thead>
+      <tbody>
+      {% for e in recent %}
+      <tr onclick="showEvent({{ e.id }})">
+        <td class="mono td-dim" style="white-space:nowrap;font-size:10px">{{ e.ts.strftime('%H:%M:%S') if e.ts else '' }}</td>
+        <td><span class="chip {{ e.protocol|lower }}">{{ e.protocol }}</span></td>
+        <td class="mono">{{ e.ip }}<button class="cpb" onclick='event.stopPropagation();copyText({{ e.ip|tojson }},"IP")' title="Copy IP">{{ svgcopy }}</button></td>
+        <td><span class="chip {{ e.event_type|lower if e.event_type else '' }}">{{ e.event_type or '—' }}</span></td>
+        <td class="mono td-path td-dim">
+          {% if e.username %}<span style="color:var(--rd)">{{ e.username }}</span><span style="color:var(--tx3)">:</span><span style="color:var(--ac)">{{ e.password or '?' }}</span>
+          {% elif e.command %}{{ e.command[:60] }}
+          {% elif e.path %}{{ e.path[:60] }}
+          {% endif %}
+        </td>
+        <td><div class="row" style="gap:4px"><button class="btn btn-sm" onclick="event.stopPropagation();showEvent({{ e.id }})">Detail</button><button class="btn btn-sm btn-rd" onclick='event.stopPropagation();blockIp({{ e.ip|tojson }})'>Block</button></div></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" class="empty">No events yet. Honeypots are listening...</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script>
+// ── Geo map ───────────────────────────────────────────────────────────────
+const geoMap = L.map('geo-map', {
+  center: [20, 10], zoom: 2, minZoom: 1, maxZoom: 10,
+  attributionControl: false, zoomControl: true
+});
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  subdomains: 'abcd', maxZoom: 19
+}).addTo(geoMap);
+L.control.attribution({ prefix: false })
+  .addAttribution('&copy; <a href="https://carto.com/">CartoDB</a>')
+  .addTo(geoMap);
+
+const geoMarkers = {};
+function refreshGeo() {
+  fetch('/api/geo')
+    .then(r => r.json())
+    .then(data => {
+      const el = document.getElementById('map-status');
+      el.textContent = data.length + ' attacker IPs geo-located';
+      const _MC = {SSH:'#f0b429',TELNET:'#3fb950',HTTP:'#f85149',HTTPS:'#f85149',FTP:'#58a6ff',TFTP:'#bc8cff'};
+      data.forEach(d => {
+        if (geoMarkers[d.ip]) {
+          geoMarkers[d.ip].setRadius(Math.min(4 + Math.log1p(d.hits) * 2.5, 18));
+          return;
+        }
+        const c = _MC[d.proto] || '#f85149';
+        const m = L.circleMarker([d.lat, d.lon], {
+          radius:      Math.min(4 + Math.log1p(d.hits) * 2.5, 18),
+          color:       c,
+          fillColor:   c,
+          fillOpacity: 0.65,
+          weight:      1.5
+        }).addTo(geoMap);
+        m.bindPopup(
+          `<span style="font-family:monospace;font-size:12px">` +
+          `<b style="color:${c}">${d.ip}</b><br>` +
+          `${d.city ? d.city + ', ' : ''}${d.country || 'Unknown'}<br>` +
+          `<span style="color:#8b949e">${d.hits} event${d.hits!==1?'s':''}</span>` +
+          `</span>`
+        );
+        geoMarkers[d.ip] = m;
+      });
+    })
+    .catch(() => {
+      document.getElementById('map-status').textContent = 'geo data unavailable';
+    });
+}
+refreshGeo();
+setInterval(refreshGeo, 15000);
+
+// ── Activity chart ────────────────────────────────────────────────────────
+const hourly = {{ stats.hourly | tojson }};
+const labels = hourly.map(r => r[0] ? r[0].slice(11,16) : '');
+const data   = hourly.map(r => r[1]);
+new Chart(document.getElementById('chart'), {
+  type: 'bar',
+  data: {
+    labels,
+    datasets:[{
+      data,
+      backgroundColor: 'rgba(240,180,41,.3)',
+      borderColor: 'rgba(240,180,41,.8)',
+      borderWidth: 1,
+      borderRadius: 3,
+    }]
+  },
+  options:{
+    responsive:true, maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{callbacks:{title:l=>`Hour: ${l[0].label}`}}},
+    scales:{
+      x:{grid:{color:'rgba(48,54,61,.5)'},ticks:{color:'#484f58',font:{family:'JetBrains Mono',size:9}}},
+      y:{grid:{color:'rgba(48,54,61,.5)'},ticks:{color:'#484f58',font:{family:'JetBrains Mono',size:9}},beginAtZero:true}
+    }
+  }
+});
+</script>
+{% endblock %}
